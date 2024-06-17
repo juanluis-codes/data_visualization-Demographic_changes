@@ -20,14 +20,16 @@ def createTemporalEvolutionProvincesChart(data, metric):
         data_filtered = data_filtered[
             (data["Periodo"] != 1996)  
         ]
+        
+    color_scheme = alt.Scale(domain=provinces, range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'])
     
     chart = alt.Chart(data_filtered).mark_line().encode(
         x="Periodo:O",
         y=f"{metric}",
-        color="Provincias",
+        color=alt.Color("Provincias", scale=color_scheme),
         tooltip=["Periodo:O", f"{metric}"]
     ).properties(
-        title="Evolución temporal de la población en España y sus tres provincias más pobladas",
+        title=f"Evolución temporal de la {metric.lower()} en España y sus tres provincias más pobladas",
     ).interactive()
     
     return chart
@@ -105,6 +107,11 @@ def createPopulationGrowthChart(data):
     chart = alt.Chart(data_filtered).mark_bar().encode(
         x=alt.X("Cambio poblacion:Q", title="Cambio de población"),
         y=alt.Y("Provincia:N", sort="-x", title="Provincia"),
+        color=alt.condition(
+            alt.datum["Cambio poblacion"] < 0,
+            alt.ColorValue("red"),
+            alt.ColorValue("green")
+        ),
         tooltip=["Provincia", "Cambio poblacion"]
     ).properties(
         title="Cambio de población por provincia (1998-2021)",
@@ -130,7 +137,9 @@ def createCrimesCorrelationChart(data, feature1, feature2):
         x=alt.X(feature1, type="quantitative"),
         y=alt.Y(feature2, type="quantitative"),
         color=alt.Color("Provincias")
-    )
+    ).properties(
+        title=f"Correlación entre las variables {feature1.lower()} y {feature2.lower()}"
+    ).interactive()
     
     return chart
 
@@ -144,16 +153,18 @@ def createSexAccumulatedChart(data, metric):
         (data["Sexo"] != "Total")
     ]
     
+    colors = alt.Scale(domain=["Hombres", "Mujeres"], range=['#1f77b4', '#ff69b4'])
+    
     chart = alt.Chart(data_filtered).mark_bar().encode(
         x="Periodo:O",
         y=f"{metric}",
-        color="Sexo:N",
+        color=alt.Color("Sexo:N", scale=colors, legend=alt.Legend(title="Sexo")),
         tooltip=["Periodo", f"{metric}", "Sexo"]
     ).properties(
-        title=f"Evolución de {metric} por género a lo largo del tiempo",
+        title=f"Evolución de {metric.lower()} por género a lo largo del tiempo",
         width=600,
         height=400
-    )
+    ).interactive()
     
     return chart
 
@@ -168,33 +179,30 @@ def createSexPieChart(data, metric):
         (data["Sexo"] != "Total")
     ]
     
+    total_metric = data_filtered[f"{metric}"].sum()
+    data_filtered["Percentage"] = (data_filtered[f"{metric}"] / total_metric) * 100
+    
+    colors = alt.Scale(domain=["Hombres", "Mujeres"], range=['#1f77b4', '#ff69b4'])
+    
     chart = alt.Chart(data_filtered).mark_arc().encode(
         theta=alt.Theta(field=f"{metric}", type="quantitative"),
-        color=alt.Color(field="Sexo", type="nominal"),
-        tooltip=["Sexo", f"{metric}"]
+        color=alt.Color("Sexo:N", scale=colors, legend=alt.Legend(title="Sexo")),
+        tooltip=["Sexo", f"{metric}", alt.Tooltip("Percentage:Q", format=".2f", title="Porcentaje")]
     ).properties(
-        title=f"Proporción de {metric} por género (2021)"
-    )
+        title=f"Proporción de {metric.lower()} por género (2021)"
+    ).interactive()
     
     return chart
 
-# Función para crear el mapa con Matplotlib
 def create_matplotlib_map(data, df_geo, metric):
-    df_geo = gpd.read_file('datasets/provincias.geojson')
-
-    # Verificar y reproyectar si es necesario
     if df_geo.crs != "EPSG:3857":
         df_geo = df_geo.to_crs("EPSG:3857")
 
-    # Filtrar el dataframe 'out.csv' para el año 2021 y el sexo "Total"
     df_filtered = data[(data['Periodo'] == 2021) & (data['Sexo'] == 'Total') & (~data['Provincias'].isin(['Total']))]
     df_filtered['NAME_2'] = df_filtered['Provincias'].apply(lambda x: x.split('/')[0].split('-')[1].strip())
 
-
-    # Mezclar los dataframes por la columna "Provincias" y "NAME_2"
     merged_df = df_geo.merge(df_filtered, on='NAME_2')
 
-    # Crear el mapa de calor
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.set_xlabel("Longitud")
     ax.set_ylabel("Latitud")
@@ -269,5 +277,6 @@ with tab4:
         "Seleccione la métrica que desee visualizar en el mapa:",
         ("Poblacion", "Nacimientos", "Defunciones", "Delitos", "Tasa de natalidad", "Tasa de mortalidad", "Tasa de criminalidad")
     )
+    
     fig = create_matplotlib_map(data, geo_data, selected_metric)
     st.pyplot(fig)

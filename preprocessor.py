@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import re
 
 class Preprocessor:
     PATH = "datasets"
@@ -24,7 +23,7 @@ class Preprocessor:
 
         crimes = self.read_csv("delitos.csv")
         crimes = crimes.rename(columns={"Total": "Delitos", "Sexo del infractor": "Sexo", "Lugar de condena": "Provincias"})
-
+        
         return population, deaths, births, crimes
 
     def explore_data(self, df, name):
@@ -57,7 +56,7 @@ class Preprocessor:
     def calculate_birth_rate(self, df):
         birth_rates = []
         for _, row in df.iterrows():
-            births = pd.to_numeric(row["Nacimientos"],  errors="coerce")
+            births = pd.to_numeric(row["Nacimientos"], errors="coerce")
             total = pd.to_numeric(row["Poblacion"], errors="coerce")
 
             if not np.isnan(births) and not np.isnan(total) and total != 0:
